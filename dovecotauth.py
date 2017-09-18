@@ -79,13 +79,11 @@ class Protocol(object):
     cuid = None
     cookie = None
 
-    version = (1, 1)
-
     _SUPPORTED = {
         'PLAIN': _encode_plain,
     }
 
-    def __init__(self, fh, service):
+    def __init__(self, service, fh):
         self.fh = fh
         self.service = service
         self.req_id = 0
