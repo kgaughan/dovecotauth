@@ -68,6 +68,17 @@ def _encode_plain(uname, pwd):
     return "\0{}\0{}".format(uname, pwd)
 
 
+def _parse_args(args):
+    result = {}
+    for arg in args:
+        if '=' in arg:
+            key, value = arg.split('=', 1)
+            result[key] = value
+        else:
+            result[arg] = True
+    return result
+
+
 class Protocol(object):
     """
     Implements the actual authentication wire protocol. This doesn't depend
@@ -159,9 +170,9 @@ class Protocol(object):
 
         response = self._read_line()
         if response[0] == 'OK':
-            return True, response[1:]
+            return True, _parse_args(response[1:])
         if response[0] == 'FAIL':
-            return False, response[1:]
+            return False, _parse_args(response[1:])
         # I don't know what else to do with continues...
         self._previous_cont = response[1]
         return None, self._previous_cont
