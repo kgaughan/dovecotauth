@@ -1,0 +1,6 @@
+.*.sw?
+*~
+/.venv
+*.py[co]
+/.eggs
+/*.egg-info/

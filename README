@@ -1,0 +1,9 @@
+====================
+talideon.dovecotauth
+====================
+
+A client for the `Dovecot Authentication Protocol v1.1`__.
+
+.. __: https://wiki2.dovecot.org/Design/AuthProtocol
+
+.. vim:set ft=rst:
