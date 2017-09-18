@@ -59,7 +59,7 @@ def connect(service, unix=None, inet=None):
     try:
         yield Protocol(service, sock.makefile())
     finally:
-        sock.shutdown()
+        sock.shutdown(socket.SHUT_RDWR)
         sock.close()
 
 
@@ -71,6 +71,8 @@ def _encode_plain(uname, pwd):
 def _parse_args(args):
     result = {}
     for arg in args:
+        if arg == '':
+            continue
         if '=' in arg:
             key, value = arg.split('=', 1)
             result[key] = value
@@ -170,11 +172,11 @@ class Protocol(object):
 
         response = self._read_line()
         if response[0] == 'OK':
-            return True, _parse_args(response[1:])
+            return True, _parse_args(response[2:])
         if response[0] == 'FAIL':
-            return False, _parse_args(response[1:])
+            return False, _parse_args(response[2:])
         # I don't know what else to do with continues...
-        self._previous_cont = response[1]
+        self._previous_cont = response[2]
         return None, self._previous_cont
 
     def cont(self):
