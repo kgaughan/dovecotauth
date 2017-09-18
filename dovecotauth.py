@@ -46,7 +46,7 @@ class NoSupportedMechanisms(DovecotAuthException):
 
 
 @contextlib.contextmanager
-def connect(unix=None, inet=None):
+def connect(service, unix=None, inet=None):
     """
     """
     if (unix and inet) or (unix is None and inet is None):
@@ -57,7 +57,7 @@ def connect(unix=None, inet=None):
     if inet:
         sock = socket.create_connection(inet)
     try:
-        yield sock.makefile()
+        yield Protocol(service, sock.makefile())
     finally:
         sock.shutdown()
         sock.close()
