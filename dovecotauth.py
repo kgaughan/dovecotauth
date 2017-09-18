@@ -2,8 +2,12 @@
 Dovecot Authentication Protocol client library.
 """
 
+from __future__ import print_function
+
+import argparse
 import base64
 import contextlib
+import getpass
 import os
 import socket
 
@@ -183,3 +187,22 @@ class Protocol(object):
         self.fh.write("CONT\t{}\t{}\n".format(self.req_id,
                                               self._previous_cont))
         self.fh.flush()
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Test client.')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--unix', help='Unix socket path')
+    group.add_argument('--inet', help='Inet address:port')
+    parser.add_argument('--service', default='imap', help='Service name')
+    parser.add_argument('--user', default=os.environ['USER'], help='Username')
+    parser.add_argument('--mech', default='PLAIN', help='SASL mechanism')
+    args = parser.parse_args()
+
+    with connect(args.service, unix=args.unix, inet=args.inet) as proto:
+        pwd = getpass.getpass()
+        print(proto.auth(args.mech, args.user, pwd))
+
+
+if __name__ == '__main__':
+    main()
