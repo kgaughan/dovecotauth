@@ -1,6 +1,6 @@
-====================
-talideon.dovecotauth
-====================
+===========
+dovecotauth
+===========
 
 A client for the `Dovecot Authentication Protocol v1.1`__.
 
