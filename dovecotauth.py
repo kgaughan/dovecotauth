@@ -60,15 +60,24 @@ def connect(service, unix=None, inet=None):
         sock = socket.socket(socket.AF_UNIX)
         sock.connect(unix)
     if inet:
-        parts = inet.split(':', 1)
-        if len(parts) != 2:
-            raise ConnectionException('Inet address must have a port number')
-        sock = socket.create_connection((parts[0], int(parts[1])))
+        sock = socket.create_connection(inet)
     try:
         yield Protocol(service, sock.makefile())
     finally:
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
+
+
+def _parse_inet(addr):
+    """
+    Parse inet address.
+    """
+    if addr is None:
+        return None
+    parts = addr.split(':', 1)
+    if len(parts) != 2:
+        raise ConnectionException('Inet address must have a port number')
+    return parts[0], int(parts[1])
 
 
 def _encode_plain(uname, pwd):
@@ -224,7 +233,8 @@ def main():
     parser.add_argument('--mech', default='PLAIN', help='SASL mechanism')
     args = parser.parse_args()
 
-    with connect(args.service, unix=args.unix, inet=args.inet) as proto:
+    inet = _parse_inet(args.inet)
+    with connect(args.service, unix=args.unix, inet=inet) as proto:
         pwd = getpass.getpass()
         print(proto.auth(args.mech, args.user, pwd))
 
