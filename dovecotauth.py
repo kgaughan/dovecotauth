@@ -59,7 +59,10 @@ def connect(service, unix=None, inet=None):
         sock = socket.socket(socket.AF_UNIX)
         sock.connect(unix)
     if inet:
-        sock = socket.create_connection(inet)
+        parts = inet.split(':', 1)
+        if len(parts) != 2:
+            raise ConnectionException('Inet address must have a port number')
+        sock = socket.create_connection((parts[0], int(parts[1])))
     try:
         yield Protocol(service, sock.makefile())
     finally:
