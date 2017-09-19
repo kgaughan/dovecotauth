@@ -6,4 +6,19 @@ A client for the `Dovecot Authentication Protocol v1.1`__.
 
 .. __: https://wiki2.dovecot.org/Design/AuthProtocol
 
+Why?
+====
+
+Dovecot is a convenient authentication backend for some stuff running on my
+server, most notably the OpenID provider it looks as if I'm going to have to
+write, and it's less trouble to write a small client to talk to it than get
+something talking to PAM.
+
+I figure that somebody might be in the same position, so why not unbundle it
+from the OpenID provider.
+
+For testing purposes, I might also write a small daemon that implements the
+protocol using `passlib` behind the scenes, though don't expect it to be super
+robust.
+
 .. vim:set ft=rst:
