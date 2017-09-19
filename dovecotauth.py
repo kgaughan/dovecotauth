@@ -52,6 +52,7 @@ class NoSupportedMechanisms(DovecotAuthException):
 @contextlib.contextmanager
 def connect(service, unix=None, inet=None):
     """
+    Connect to a dovecot auth endpoint.
     """
     if (unix and inet) or (unix is None and inet is None):
         raise ConnectionException("Pass either 'unix' or 'inet'")
@@ -71,11 +72,17 @@ def connect(service, unix=None, inet=None):
 
 
 def _encode_plain(uname, pwd):
+    """
+    Encode a username/password pair with the SASL PLAIN mechanism.
+    """
     # See https://tools.ietf.org/html/rfc4616
     return "\0{}\0{}".format(uname, pwd)
 
 
 def _parse_args(args):
+    """
+    Parse an argument list.
+    """
     result = {}
     for arg in args:
         if arg == '':
@@ -111,9 +118,15 @@ class Protocol(object):
         self._previous_cont = None
 
     def _read_line(self):
+        """
+        Parse a response line.
+        """
         return self.fh.readline().rstrip('\n').split('\t')
 
     def _do_handshake(self):
+        """
+        Perform the initial protocol handshake.
+        """
         self.fh.write("VERSION\t1\t1\n")
         self.fh.write("CPID\t{}\n".format(os.getpid()))
         self.fh.flush()
@@ -147,6 +160,9 @@ class Protocol(object):
     def auth(self, mechanism, uname, pwd,
              secured=False, valid_client_cert=False, no_penalty=False,
              **kwargs):
+        """
+        Send an auth request.
+        """
         if not self.handshake_completed:
             self._do_handshake()
 
@@ -187,13 +203,19 @@ class Protocol(object):
         return None, self._previous_cont
 
     def cont(self):
+        """
+        Send CONT request.
+        """
         self.fh.write("CONT\t{}\t{}\n".format(self.req_id,
                                               self._previous_cont))
         self.fh.flush()
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Test client.')
+    """
+    Demonstration client.
+    """
+    parser = argparse.ArgumentParser(description='Demo client.')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--unix', help='Unix socket path')
     group.add_argument('--inet', help='Inet address:port')
