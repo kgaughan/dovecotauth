@@ -5,3 +5,5 @@
 /.eggs
 /*.egg-info/
 *.orig
+/build/
+/dist/
