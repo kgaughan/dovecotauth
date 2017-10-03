@@ -104,6 +104,13 @@ def _parse_args(args):
     return result
 
 
+def _read_line(fh):
+    """
+    Parse a protocol line.
+    """
+    return fh.readline().rstrip('\n').split('\t')
+
+
 class Protocol(object):
     """
     Implements the actual authentication wire protocol. This doesn't depend
@@ -142,7 +149,7 @@ class Protocol(object):
 
         unsupported = []
         while True:
-            args = self._read_line()
+            args = _read_line(self.fh)
             if args[0] == 'DONE':
                 break
 
@@ -202,7 +209,7 @@ class Protocol(object):
                                                               '\t'.join(args)))
         self.fh.flush()
 
-        response = self._read_line()
+        response = _read_line(self.fh)
         if response[0] == 'OK':
             return True, _parse_args(response[2:])
         if response[0] == 'FAIL':
