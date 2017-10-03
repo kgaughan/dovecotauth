@@ -88,6 +88,11 @@ def _encode_plain(uname, pwd):
     return "\0{}\0{}".format(uname, pwd)
 
 
+_SUPPORTED = {
+    'PLAIN': _encode_plain,
+}
+
+
 def _parse_args(args):
     """
     Parse an argument list.
@@ -121,10 +126,6 @@ class Protocol(object):
     spid = None
     cuid = None
     cookie = None
-
-    _SUPPORTED = {
-        'PLAIN': _encode_plain,
-    }
 
     def __init__(self, service, fh):
         self.fh = fh
@@ -163,7 +164,7 @@ class Protocol(object):
                 if args[1] != "1" and args[2] != "1":
                     raise UnsupportedVersion('.'.join(args[1:]))
             elif args[0] == 'MECH':
-                if args[1] in self._SUPPORTED:
+                if args[1] in _SUPPORTED:
                     self.mechanisms[args[1]] = frozenset(args[2:])
                 else:
                     unsupported.append(args[1])
