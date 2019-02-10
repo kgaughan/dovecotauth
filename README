@@ -21,4 +21,15 @@ For testing purposes, I might also write a small daemon that implements the
 protocol using `passlib` behind the scenes, though don't expect it to be super
 robust.
 
+Development
+===========
+
+To set up your development environment, run::
+
+    make dev
+
+To upload a new release to PyPI::
+
+    make release
+
 .. vim:set ft=rst:
