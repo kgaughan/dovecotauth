@@ -61,7 +61,7 @@ def connect(service, unix=None, inet=None):
     if inet:
         sock = socket.create_connection(inet)
     try:
-        yield Protocol(service, sock.makefile())
+        yield Protocol(service, sock.makefile('rw'))
     finally:
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
@@ -112,7 +112,10 @@ def _read_line(fh):
     """
     Parse a protocol line.
     """
-    return fh.readline().rstrip('\n').split('\t')
+    line = fh.readline()
+    if line == '':
+        return None
+    return line.rstrip('\n\r').split('\t')
 
 
 class Protocol(object):
@@ -133,12 +136,6 @@ class Protocol(object):
         self.mechanisms = {}
         self._previous_cont = None
 
-    def _read_line(self):
-        """
-        Parse a response line.
-        """
-        return self.fh.readline().rstrip('\n').split('\t')
-
     def _do_handshake(self):
         """
         Perform the initial protocol handshake.
@@ -150,6 +147,8 @@ class Protocol(object):
         unsupported = []
         while True:
             args = _read_line(self.fh)
+            if args is None:
+                raise ConnectionException()
             if args[0] == 'DONE':
                 break
 
