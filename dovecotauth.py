@@ -1,8 +1,7 @@
+#!/usr/bin/env python3
 """
 Dovecot Authentication Protocol client library.
 """
-
-from __future__ import print_function
 
 import argparse
 import base64
@@ -162,7 +161,7 @@ class Protocol(object):
                 self.cookie = args[1]
             elif args[0] == 'VERSION':
                 if args[1] != "1" and args[2] != "1":
-                    raise UnsupportedVersion('.'.join(args[1:]))
+                    raise UnsupportedVersion(b'.'.join(args[1:]))
             elif args[0] == 'MECH':
                 if args[1] in _SUPPORTED:
                     self.mechanisms[args[1]] = frozenset(args[2:])
@@ -193,7 +192,7 @@ class Protocol(object):
                 del kwargs[prohibited]
 
         args = ["{}={}".format(key, value)
-                for key, value in kwargs.iteritems()]
+                for key, value in kwargs.items()]
 
         for flag, name in ((secured, 'secured'),
                            (valid_client_cert, 'valid-client-cert'),
@@ -201,8 +200,8 @@ class Protocol(object):
             if flag:
                 args.append(name)
 
-        resp = self._SUPPORTED[mechanism](uname, pwd)
-        args.append('resp=' + base64.b64encode(resp))
+        resp = _SUPPORTED[mechanism](uname, pwd)
+        args.append('resp=' + base64.b64encode(resp.encode()).decode())
 
         self.fh.write("AUTH\t{}\t{}\tservice={}\t{}\n".format(self.req_id,
                                                               mechanism,
