@@ -9,6 +9,9 @@ import contextlib
 import getpass
 import os
 import socket
+import socketserver
+import uuid
+
 
 __version__ = '0.0.1'
 
@@ -61,7 +64,7 @@ def connect(service, unix=None, inet=None):
     if inet:
         sock = socket.create_connection(inet)
     try:
-        yield Protocol(service, sock.makefile('rw'))
+        yield Protocol(service, sock.makefile('rwb'))
     finally:
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
@@ -113,9 +116,14 @@ def _read_line(fh):
     Parse a protocol line.
     """
     line = fh.readline()
-    if line == '':
+    if not line:
         return None
-    return line.rstrip('\n\r').split('\t')
+    return line.rstrip(b'\n\r').split(b'\t')
+
+def _write_line(fh, *args):
+    fh.write('\t'.join(args).encode())
+    fh.write(b'\n')
+    fh.flush()
 
 
 class Protocol(object):
@@ -140,32 +148,32 @@ class Protocol(object):
         """
         Perform the initial protocol handshake.
         """
-        self.fh.write("VERSION\t1\t1\n")
-        self.fh.write("CPID\t{}\n".format(os.getpid()))
-        self.fh.flush()
+        _write_line(self.fh, "VERSION", "1", "1")
+        _write_line(self.fh, "CPID", str(os.getpid()))
 
         unsupported = []
         while True:
             args = _read_line(self.fh)
             if args is None:
                 raise ConnectionException()
-            if args[0] == 'DONE':
+            if args[0] == b'DONE':
                 break
 
-            if args[0] == 'SPID':
+            if args[0] == b'SPID':
                 self.spid = args[1]
-            elif args[0] == 'CUID':
+            elif args[0] == b'CUID':
                 self.cuid = args[1]
-            elif args[0] == 'COOKIE':
+            elif args[0] == b'COOKIE':
                 self.cookie = args[1]
-            elif args[0] == 'VERSION':
-                if args[1] != "1" and args[2] != "1":
+            elif args[0] == b'VERSION':
+                if args[1] != b"1" and args[2] != b"1":
                     raise UnsupportedVersion(b'.'.join(args[1:]))
-            elif args[0] == 'MECH':
-                if args[1] in _SUPPORTED:
-                    self.mechanisms[args[1]] = frozenset(args[2:])
+            elif args[0] == b'MECH':
+                mech = args[1].decode()
+                if mech in _SUPPORTED:
+                    self.mechanisms[mech] = frozenset(args[2:])
                 else:
-                    unsupported.append(args[1])
+                    unsupported.append(mech)
 
         if len(self.mechanisms) == 0:
             raise NoSupportedMechanisms(unsupported)
@@ -192,6 +200,7 @@ class Protocol(object):
 
         args = ["{}={}".format(key, value)
                 for key, value in kwargs.items()]
+        args.insert(0, 'service=' + self.service)  # 'service' must be first.
 
         for flag, name in ((secured, 'secured'),
                            (valid_client_cert, 'valid-client-cert'),
@@ -202,11 +211,7 @@ class Protocol(object):
         resp = _SUPPORTED[mechanism](uname, pwd)
         args.append('resp=' + base64.b64encode(resp.encode()).decode())
 
-        self.fh.write("AUTH\t{}\t{}\tservice={}\t{}\n".format(self.req_id,
-                                                              mechanism,
-                                                              self.service,
-                                                              '\t'.join(args)))
-        self.fh.flush()
+        _write_line(self.fh, "AUTH", str(self.req_id), mechanism, *args)
 
         response = _read_line(self.fh)
         if response[0] == 'OK':
@@ -226,23 +231,129 @@ class Protocol(object):
         self.fh.flush()
 
 
-def main():
-    """
-    Demonstration client.
-    """
-    parser = argparse.ArgumentParser(description='Demo client.')
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--unix', help='Unix socket path')
-    group.add_argument('--inet', help='Inet address:port')
+def _add_client_arg_parser(parent):
+    parser = parent.add_parser('client', help='Demo client.')
     parser.add_argument('--service', default='imap', help='Service name')
     parser.add_argument('--user', default=os.environ['USER'], help='Username')
     parser.add_argument('--mech', default='PLAIN', help='SASL mechanism')
-    args = parser.parse_args()
 
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--unix', help='Unix socket path')
+    group.add_argument('--inet', help='Inet address:port')
+
+
+def _client(args):
     inet = _parse_inet(args.inet)
     with connect(args.service, unix=args.unix, inet=inet) as proto:
         pwd = getpass.getpass()
         print(proto.auth(args.mech, args.user, pwd))
+
+
+def _add_server_arg_parser(parent):
+    parser = parent.add_parser('server', help='Demo server.')
+    parser.add_argument('--htpasswd', required=True,
+                        help='Path to htpasswd file')
+
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--unix', help='Unix socket path')
+    group.add_argument('--inet', help='Inet address:port')
+
+
+class _RequestHandler(socketserver.StreamRequestHandler):
+
+    cookie = None
+    cpid = None
+    rid = None
+
+    def setup(self):
+        super().setup()
+        self.cookie = uuid.uuid4().hex.upper()
+
+    def read_line(self):
+        line = _read_line(self.rfile)
+        if len(line) > 2 and line[0] == b'AUTH':
+            self.rid = line[1]
+        return line
+
+    def write_line(self, *args):
+        _write_line(self.wfile, *args)
+
+    def fail(self, code=None, reason=None):
+        args = ['FAIL', self.rid]
+        if code:
+            args.append('code=' + code)
+        if reason:
+            args.append('reason=' + reason)
+        self.write_line(*args)
+
+    def ok(self, *args):
+        self.write_line('OK', self.rid, *args)
+
+    def handle(self):
+        line = _read_line(self.rfile)
+        if line != [b'VERSION', b'1', b'1']:
+            return
+
+        line = _read_line(self.rfile)
+        if len(line) != 2 and line[0] != b'CPID':
+            return
+        self.cpid = line[1]
+
+        self.write_line('VERSION', '1', '1')
+        self.write_line('SPID', str(os.getpid()))
+        self.server.cuid += 1
+        self.write_line('CUID', str(self.server.cuid))
+        self.write_line('COOKIE', self.cookie)
+
+        for mechanism in _SUPPORTED:
+            self.write_line('MECH', mechanism, '')
+        self.write_line('DONE')
+
+        while True:
+            line = _read_line(self.rfile)
+            # Disconnect on a bad line.
+            if len(line) < 2:
+                return
+            if line[0] == b'AUTH':
+                if len(line) < 5:
+                    self.fail(reason='insufficient arguments')
+                    continue
+
+
+def _server(args):
+    from passlib import apache
+
+    db = apache.HtpasswdFile(args.htpasswd)
+
+    if args.unix:
+        svr_class = socketserver.UnixStreamServer
+        addr = args.unix
+    else:
+        svr_class = socketserver.TCPServer
+        addr = _parse_inet(args.inet)
+
+    with svr_class(addr, _RequestHandler) as svr:
+        svr.db = db
+        svr.cuid = 0
+        svr.serve_forever()
+
+
+def main():
+    """
+    Runner.
+    """
+    parser = argparse.ArgumentParser(description='Demo server and client.')
+    subparsers = parser.add_subparsers(dest='command')
+    for subparser in [_add_client_arg_parser, _add_server_arg_parser]:
+        subparser(subparsers)
+    args = parser.parse_args()
+
+    if args.command == 'client':
+        _client(args)
+    elif args.command == 'server':
+        _server(args)
+    else:
+        parser.error("No command specified.")
 
 
 if __name__ == '__main__':
