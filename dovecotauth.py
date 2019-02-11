@@ -316,6 +316,22 @@ class _RequestHandler(socketserver.StreamRequestHandler):
                 if len(line) < 5:
                     self.fail(reason='insufficient arguments')
                     continue
+                if line[2] != b'PLAIN':
+                    self.fail(reason='only PLAIN supported')
+                    continue
+                fields = dict(kv.decode().split('=', 1) for kv in line[3:])
+                if 'service' not in fields:
+                    self.fail(reason='please provide a service field')
+                    continue
+                if 'resp' not in fields:
+                    self.fail(reason='please provide a resp field')
+                    continue
+                _, uname, passwd = base64.b64decode(fields['resp'].encode()).split(b'\0')
+                if self.server.db.check_password(uname.decode(), passwd.decode()):
+                    self.ok("user=" + uname.decode())
+                else:
+                    self.fail(reason='bad username/password pair',
+                              user=uname.decode())
 
 
 def _server(args):
