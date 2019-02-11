@@ -271,30 +271,28 @@ class _RequestHandler(socketserver.StreamRequestHandler):
 
     def read_line(self):
         line = _read_line(self.rfile)
-        if len(line) > 2 and line[0] == b'AUTH':
-            self.rid = line[1]
+        if line is not None and len(line) > 2 and line[0] == b'AUTH':
+            self.rid = line[1].decode()
         return line
 
     def write_line(self, *args):
         _write_line(self.wfile, *args)
 
-    def fail(self, code=None, reason=None):
+    def fail(self, **kwargs):
         args = ['FAIL', self.rid]
-        if code:
-            args.append('code=' + code)
-        if reason:
-            args.append('reason=' + reason)
+        for key, value in kwargs.items():
+            args.append('{}={}'.format(key, value))
         self.write_line(*args)
 
     def ok(self, *args):
         self.write_line('OK', self.rid, *args)
 
     def handle(self):
-        line = _read_line(self.rfile)
+        line = self.read_line()
         if line != [b'VERSION', b'1', b'1']:
             return
 
-        line = _read_line(self.rfile)
+        line = self.read_line()
         if len(line) != 2 and line[0] != b'CPID':
             return
         self.cpid = line[1]
@@ -310,9 +308,9 @@ class _RequestHandler(socketserver.StreamRequestHandler):
         self.write_line('DONE')
 
         while True:
-            line = _read_line(self.rfile)
-            # Disconnect on a bad line.
-            if len(line) < 2:
+            line = self.read_line()
+            # Disconnect on a bad line or end of session
+            if line is None or len(line) < 2:
                 return
             if line[0] == b'AUTH':
                 if len(line) < 5:
