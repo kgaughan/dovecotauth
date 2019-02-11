@@ -32,4 +32,10 @@ To upload a new release to PyPI::
 
     make release
 
+Usage
+=====
+
+Demos
+=====
+
 .. vim:set ft=rst:
