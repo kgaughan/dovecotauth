@@ -101,6 +101,7 @@ def _parse_args(args):
     """
     result = {}
     for arg in args:
+        arg = arg.decode()
         if arg == '':
             continue
         if '=' in arg:
@@ -119,6 +120,7 @@ def _read_line(fh):
     if not line:
         return None
     return line.rstrip(b'\n\r').split(b'\t')
+
 
 def _write_line(fh, *args):
     fh.write('\t'.join(args).encode())
@@ -214,9 +216,9 @@ class Protocol(object):
         _write_line(self.fh, "AUTH", str(self.req_id), mechanism, *args)
 
         response = _read_line(self.fh)
-        if response[0] == 'OK':
+        if response[0] == b'OK':
             return True, _parse_args(response[2:])
-        if response[0] == 'FAIL':
+        if response[0] == b'FAIL':
             return False, _parse_args(response[2:])
         # I don't know what else to do with continues...
         self._previous_cont = response[2]
