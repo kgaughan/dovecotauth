@@ -234,8 +234,8 @@ class Protocol(object):
         """
         Send CONT request.
         """
-        self.fh.write("CONT\t{}\t{}\n".format(self.req_id, self._previous_cont))
-        self.fh.flush()
+        if self._previous_cont is not None:
+            _write_line(self.fh, "CONT", str(self.req_id), self._previous_cont)
 
 
 def _add_client_arg_parser(parent):
