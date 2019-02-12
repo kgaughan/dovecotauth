@@ -13,16 +13,15 @@ import socketserver
 import uuid
 
 
-__version__ = '0.0.1'
+__version__ = "0.0.1"
 
 __all__ = [
-    'DovecotAuthException',
-    'ConnectionException',
-    'UnsupportedVersion',
-    'NoSupportedMechanisms',
-
-    'connect',
-    'Protocol',
+    "DovecotAuthException",
+    "ConnectionException",
+    "UnsupportedVersion",
+    "NoSupportedMechanisms",
+    "connect",
+    "Protocol",
 ]
 
 
@@ -64,7 +63,7 @@ def connect(service, unix=None, inet=None):
     if inet:
         sock = socket.create_connection(inet)
     try:
-        yield Protocol(service, sock.makefile('rwb'))
+        yield Protocol(service, sock.makefile("rwb"))
     finally:
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
@@ -76,9 +75,9 @@ def _parse_inet(addr):
     """
     if addr is None:
         return None
-    parts = addr.split(':', 1)
+    parts = addr.split(":", 1)
     if len(parts) != 2:
-        raise ConnectionException('Inet address must have a port number')
+        raise ConnectionException("Inet address must have a port number")
     return parts[0], int(parts[1])
 
 
@@ -91,7 +90,7 @@ def _encode_plain(uname, pwd):
 
 
 _SUPPORTED = {
-    'PLAIN': _encode_plain,
+    "PLAIN": _encode_plain,
 }
 
 
@@ -102,10 +101,10 @@ def _parse_args(args):
     result = {}
     for arg in args:
         arg = arg.decode()
-        if arg == '':
+        if arg == "":
             continue
-        if '=' in arg:
-            key, value = arg.split('=', 1)
+        if "=" in arg:
+            key, value = arg.split("=", 1)
             result[key] = value
         else:
             result[arg] = True
@@ -119,12 +118,12 @@ def _read_line(fh):
     line = fh.readline()
     if not line:
         return None
-    return line.rstrip(b'\n\r').split(b'\t')
+    return line.rstrip(b"\n\r").split(b"\t")
 
 
 def _write_line(fh, *args):
-    fh.write('\t'.join(args).encode())
-    fh.write(b'\n')
+    fh.write("\t".join(args).encode())
+    fh.write(b"\n")
     fh.flush()
 
 
@@ -158,19 +157,19 @@ class Protocol(object):
             args = _read_line(self.fh)
             if args is None:
                 raise ConnectionException()
-            if args[0] == b'DONE':
+            if args[0] == b"DONE":
                 break
 
-            if args[0] == b'SPID':
+            if args[0] == b"SPID":
                 self.spid = args[1]
-            elif args[0] == b'CUID':
+            elif args[0] == b"CUID":
                 self.cuid = args[1]
-            elif args[0] == b'COOKIE':
+            elif args[0] == b"COOKIE":
                 self.cookie = args[1]
-            elif args[0] == b'VERSION':
+            elif args[0] == b"VERSION":
                 if args[1] != b"1" and args[2] != b"1":
-                    raise UnsupportedVersion(b'.'.join(args[1:]))
-            elif args[0] == b'MECH':
+                    raise UnsupportedVersion(b".".join(args[1:]))
+            elif args[0] == b"MECH":
                 mech = args[1].decode()
                 if mech in _SUPPORTED:
                     self.mechanisms[mech] = frozenset(args[2:])
@@ -182,9 +181,16 @@ class Protocol(object):
 
         self.handshake_completed = True
 
-    def auth(self, mechanism, uname, pwd,
-             secured=False, valid_client_cert=False, no_penalty=False,
-             **kwargs):
+    def auth(
+        self,
+        mechanism,
+        uname,
+        pwd,
+        secured=False,
+        valid_client_cert=False,
+        no_penalty=False,
+        **kwargs
+    ):
         """
         Send an auth request.
         """
@@ -195,30 +201,30 @@ class Protocol(object):
 
         self.req_id += 1
 
-        for prohibited in ('resp', 'no-penalty',
-                           'secured', 'valid-client-cert'):
+        for prohibited in ("resp", "no-penalty", "secured", "valid-client-cert"):
             if prohibited in kwargs:
                 del kwargs[prohibited]
 
-        args = ["{}={}".format(key, value)
-                for key, value in kwargs.items()]
-        args.insert(0, 'service=' + self.service)  # 'service' must be first.
+        args = ["{}={}".format(key, value) for key, value in kwargs.items()]
+        args.insert(0, "service=" + self.service)  # 'service' must be first.
 
-        for flag, name in ((secured, 'secured'),
-                           (valid_client_cert, 'valid-client-cert'),
-                           (no_penalty, 'no-penalty')):
+        for flag, name in (
+            (secured, "secured"),
+            (valid_client_cert, "valid-client-cert"),
+            (no_penalty, "no-penalty"),
+        ):
             if flag:
                 args.append(name)
 
         resp = _SUPPORTED[mechanism](uname, pwd)
-        args.append('resp=' + base64.b64encode(resp.encode()).decode())
+        args.append("resp=" + base64.b64encode(resp.encode()).decode())
 
         _write_line(self.fh, "AUTH", str(self.req_id), mechanism, *args)
 
         response = _read_line(self.fh)
-        if response[0] == b'OK':
+        if response[0] == b"OK":
             return True, _parse_args(response[2:])
-        if response[0] == b'FAIL':
+        if response[0] == b"FAIL":
             return False, _parse_args(response[2:])
         # I don't know what else to do with continues...
         self._previous_cont = response[2]
@@ -228,20 +234,19 @@ class Protocol(object):
         """
         Send CONT request.
         """
-        self.fh.write("CONT\t{}\t{}\n".format(self.req_id,
-                                              self._previous_cont))
+        self.fh.write("CONT\t{}\t{}\n".format(self.req_id, self._previous_cont))
         self.fh.flush()
 
 
 def _add_client_arg_parser(parent):
-    parser = parent.add_parser('client', help='Demo client.')
-    parser.add_argument('--service', default='imap', help='Service name')
-    parser.add_argument('--user', default=os.environ['USER'], help='Username')
-    parser.add_argument('--mech', default='PLAIN', help='SASL mechanism')
+    parser = parent.add_parser("client", help="Demo client.")
+    parser.add_argument("--service", default="imap", help="Service name")
+    parser.add_argument("--user", default=os.environ["USER"], help="Username")
+    parser.add_argument("--mech", default="PLAIN", help="SASL mechanism")
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--unix', help='Unix socket path')
-    group.add_argument('--inet', help='Inet address:port')
+    group.add_argument("--unix", help="Unix socket path")
+    group.add_argument("--inet", help="Inet address:port")
 
 
 def _client(args):
@@ -252,13 +257,12 @@ def _client(args):
 
 
 def _add_server_arg_parser(parent):
-    parser = parent.add_parser('server', help='Demo server.')
-    parser.add_argument('--htpasswd', required=True,
-                        help='Path to htpasswd file')
+    parser = parent.add_parser("server", help="Demo server.")
+    parser.add_argument("--htpasswd", required=True, help="Path to htpasswd file")
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--unix', help='Unix socket path')
-    group.add_argument('--inet', help='Inet address:port')
+    group.add_argument("--unix", help="Unix socket path")
+    group.add_argument("--inet", help="Inet address:port")
 
 
 class _RequestHandler(socketserver.StreamRequestHandler):
@@ -273,7 +277,7 @@ class _RequestHandler(socketserver.StreamRequestHandler):
 
     def read_line(self):
         line = _read_line(self.rfile)
-        if line is not None and len(line) > 2 and line[0] == b'AUTH':
+        if line is not None and len(line) > 2 and line[0] == b"AUTH":
             self.rid = line[1].decode()
         return line
 
@@ -281,59 +285,58 @@ class _RequestHandler(socketserver.StreamRequestHandler):
         _write_line(self.wfile, *args)
 
     def fail(self, **kwargs):
-        args = ['FAIL', self.rid]
+        args = ["FAIL", self.rid]
         for key, value in kwargs.items():
-            args.append('{}={}'.format(key, value))
+            args.append("{}={}".format(key, value))
         self.write_line(*args)
 
     def ok(self, *args):
-        self.write_line('OK', self.rid, *args)
+        self.write_line("OK", self.rid, *args)
 
     def handle(self):
         line = self.read_line()
-        if line != [b'VERSION', b'1', b'1']:
+        if line != [b"VERSION", b"1", b"1"]:
             return
 
         line = self.read_line()
-        if len(line) != 2 and line[0] != b'CPID':
+        if len(line) != 2 and line[0] != b"CPID":
             return
         self.cpid = line[1]
 
-        self.write_line('VERSION', '1', '1')
-        self.write_line('SPID', str(os.getpid()))
+        self.write_line("VERSION", "1", "1")
+        self.write_line("SPID", str(os.getpid()))
         self.server.cuid += 1
-        self.write_line('CUID', str(self.server.cuid))
-        self.write_line('COOKIE', self.cookie)
+        self.write_line("CUID", str(self.server.cuid))
+        self.write_line("COOKIE", self.cookie)
 
         for mechanism in _SUPPORTED:
-            self.write_line('MECH', mechanism, '')
-        self.write_line('DONE')
+            self.write_line("MECH", mechanism, "")
+        self.write_line("DONE")
 
         while True:
             line = self.read_line()
             # Disconnect on a bad line or end of session
             if line is None or len(line) < 2:
                 return
-            if line[0] == b'AUTH':
+            if line[0] == b"AUTH":
                 if len(line) < 5:
-                    self.fail(reason='insufficient arguments')
+                    self.fail(reason="insufficient arguments")
                     continue
-                if line[2] != b'PLAIN':
-                    self.fail(reason='only PLAIN supported')
+                if line[2] != b"PLAIN":
+                    self.fail(reason="only PLAIN supported")
                     continue
-                fields = dict(kv.decode().split('=', 1) for kv in line[3:])
-                if 'service' not in fields:
-                    self.fail(reason='please provide a service field')
+                fields = dict(kv.decode().split("=", 1) for kv in line[3:])
+                if "service" not in fields:
+                    self.fail(reason="please provide a service field")
                     continue
-                if 'resp' not in fields:
-                    self.fail(reason='please provide a resp field')
+                if "resp" not in fields:
+                    self.fail(reason="please provide a resp field")
                     continue
-                _, uname, passwd = base64.b64decode(fields['resp'].encode()).split(b'\0')
+                _, uname, passwd = base64.b64decode(fields["resp"].encode()).split(b"\0")
                 if self.server.db.check_password(uname.decode(), passwd.decode()):
                     self.ok("user=" + uname.decode())
                 else:
-                    self.fail(reason='bad username/password pair',
-                              user=uname.decode())
+                    self.fail(reason="bad username/password pair", user=uname.decode())
 
 
 def _server(args):
@@ -358,19 +361,19 @@ def main():
     """
     Runner.
     """
-    parser = argparse.ArgumentParser(description='Demo server and client.')
-    subparsers = parser.add_subparsers(dest='command')
+    parser = argparse.ArgumentParser(description="Demo server and client.")
+    subparsers = parser.add_subparsers(dest="command")
     for subparser in [_add_client_arg_parser, _add_server_arg_parser]:
         subparser(subparsers)
     args = parser.parse_args()
 
-    if args.command == 'client':
+    if args.command == "client":
         _client(args)
-    elif args.command == 'server':
+    elif args.command == "server":
         _server(args)
     else:
         parser.error("No command specified.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
