@@ -1,4 +1,0 @@
-passlib
-twine
-wheel
--e .

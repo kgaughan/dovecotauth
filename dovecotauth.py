@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Dovecot Authentication Protocol client library.
+A client library for the Dovecot Authentication Protocol v1.1
 """
 
 import argparse

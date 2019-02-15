@@ -1,14 +1,14 @@
 dev: .venv
-	.venv/bin/pip install -r requirements-dev.txt
+	.venv/bin/pip install flit
+	.venv/bin/flit install --symlink
 
 .venv:
 	python3 -m venv .venv
 
 wheel:
-	rm -rf build
-	.venv/bin/python setup.py sdist bdist_wheel
+	.venv/bin/flit build
 
 release: wheel
-	.venv/bin/twine upload dist/dovecotauth-*
+	.venv/bin/flit publish
 
 .PHONY: dev wheel release
