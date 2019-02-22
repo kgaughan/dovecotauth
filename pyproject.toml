@@ -8,6 +8,7 @@ author = "Keith Gaughan"
 author-email = "k@stereochro.me"
 home-page = "https://github.com/kgaughan/dovecotauth"
 requires-python = ">=3.3"
+description-file = "README.rst"
 classifiers = [
 	"Development Status :: 4 - Beta",
 	"Intended Audience :: System Administrators",
